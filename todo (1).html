@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>plan+ todos</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0F1115;
+    --sf: #1A1D23;
+    --sf2: #22262E;
+    --sf3: #2A2F38;
+    --bd: rgba(255,255,255,0.06);
+    --bdL: rgba(255,255,255,0.1);
+    --acc: #3A82F7;
+    --accD: rgba(58,130,247,0.15);
+    --tl: #2FA4A9;
+    --grn: #34C759;
+    --grnD: rgba(52,199,89,0.12);
+    --red: #E05C5C;
+    --redD: rgba(224,92,92,0.1);
+    --prp: #9D7AE8;
+    --amb: #D4A843;
+    --t1: #F0F2F5;
+    --t2: #B0B8C4;
+    --t3: #6B7280;
+    --t4: #3E4450;
+    --glass: rgba(22,25,32,0.65);
+    --glassBd: rgba(255,255,255,0.08);
+    --sh2: 0 4px 16px rgba(0,0,0,0.25);
+    --sh3: 0 8px 32px rgba(0,0,0,0.35);
+  }
+
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--t1);
+    font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--sf3); border-radius: 3px; }
+
+  /* ═══ NAV ═══ */
+  .nav-wrap {
+    position: sticky; top: 12px; z-index: 200;
+    display: flex; justify-content: center; padding: 0 16px;
+    pointer-events: none;
+  }
+  .nav {
+    background: rgba(15,17,21,0.72);
+    backdrop-filter: blur(24px) saturate(1.5);
+    border-radius: 999px; padding: 4px 6px;
+    display: flex; align-items: center; gap: 2px;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.5);
+    border: 1px solid var(--glassBd);
+    pointer-events: auto;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px 6px 10px;
+  }
+  .nav-icon {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: var(--acc); display: flex; align-items: center;
+    justify-content: center; font-size: 14px; font-weight: 800; color: #fff;
+  }
+  .nav-title { font-size: 14px; font-weight: 700; color: var(--t1); }
+  .nav-title span { color: var(--acc); }
+  .nav-tab {
+    padding: 8px 14px; border-radius: 999px; border: none;
+    cursor: pointer; font-size: 12px; font-weight: 400;
+    font-family: inherit; transition: all 0.2s;
+    background: transparent; color: var(--t3); white-space: nowrap;
+  }
+  .nav-tab.active { background: rgba(255,255,255,0.08); color: var(--t1); font-weight: 600; }
+  .nav-stat {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 12px 5px 8px;
+    background: var(--sf); border-radius: 999px; margin-left: 2px;
+    font-size: 11px; font-weight: 700; color: var(--acc);
+  }
+  .save-pill {
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 10px; font-weight: 600; transition: all 0.3s;
+    margin-left: 4px;
+  }
+  .save-pill.saving { background: var(--sf); color: var(--t3); }
+  .save-pill.saved { background: var(--grnD); color: var(--grn); }
+
+  /* ═══ LAYOUT ═══ */
+  .main { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; position: relative; }
+
+  /* ═══ GLASS CARD ═══ */
+  .glass {
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border-radius: 16px; padding: 24px;
+    box-shadow: var(--sh2);
+    border: 1px solid var(--glassBd);
+  }
+  .glass.glow { border-color: rgba(58,130,247,0.2); box-shadow: 0 0 24px rgba(58,130,247,0.06), var(--sh2); }
+
+  /* ═══ HEADER ═══ */
+  .page-title { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 8px; }
+  .page-sub { font-size: 13px; color: var(--t3); margin-bottom: 40px; }
+
+  /* ═══ INPUT ═══ */
+  .add-row { display: flex; gap: 8px; margin-bottom: 32px; }
+  .add-input {
+    flex: 1; background: var(--sf); border: 1px solid var(--bd);
+    border-radius: 12px; padding: 14px 16px; color: var(--t1);
+    font-size: 14px; font-family: inherit; outline: none;
+    transition: border 0.2s, box-shadow 0.2s;
+  }
+  .add-input:focus { border-color: var(--acc); box-shadow: 0 0 0 2px var(--accD); }
+  .add-input::placeholder { color: var(--t4); }
+  .add-btn {
+    padding: 14px 24px; border-radius: 12px; border: none;
+    background: var(--acc); color: #fff; font-size: 14px;
+    font-weight: 700; font-family: inherit; cursor: pointer;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .add-btn:hover { box-shadow: 0 4px 16px rgba(58,130,247,0.3); }
+
+  /* ═══ FILTERS ═══ */
+  .filters {
+    display: flex; gap: 4px; background: var(--sf);
+    border-radius: 12px; padding: 3px; margin-bottom: 24px;
+    width: fit-content;
+  }
+  .filter-btn {
+    padding: 8px 16px; border-radius: 10px; border: none;
+    cursor: pointer; font-size: 12px; font-weight: 500;
+    font-family: inherit; transition: all 0.2s;
+    background: transparent; color: var(--t3);
+  }
+  .filter-btn.active {
+    background: var(--sf2); color: var(--t1);
+    font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+
+  /* ═══ STATS ═══ */
+  .stats {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border-radius: 14px; padding: 20px; text-align: center;
+    border: 1px solid var(--glassBd); box-shadow: var(--sh2);
+  }
+  .stat-label {
+    font-size: 10px; color: var(--t3); text-transform: uppercase;
+    letter-spacing: 0.08em; font-weight: 600; margin-bottom: 8px;
+  }
+  .stat-val { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
+
+  /* ═══ TODO ITEM ═══ */
+  .todo-list { display: flex; flex-direction: column; gap: 8px; }
+  .todo-empty {
+    text-align: center; padding: 48px 24px; color: var(--t3);
+    font-size: 14px;
+  }
+  .todo-item {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 16px 20px; border-radius: 14px;
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--glassBd);
+    box-shadow: var(--sh2);
+    transition: all 0.15s ease;
+    cursor: default;
+  }
+  .todo-item:hover { border-color: var(--bdL); }
+  .todo-item.done { opacity: 0.35; }
+
+  .todo-check {
+    width: 22px; height: 22px; border-radius: 7px;
+    border: 2px solid var(--sf3); background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; margin-top: 1px;
+    transition: all 0.2s;
+  }
+  .todo-check:hover { border-color: var(--acc); }
+  .todo-check.checked { background: var(--grn); border-color: var(--grn); }
+  .todo-check svg { display: none; }
+  .todo-check.checked svg { display: block; }
+
+  .todo-body { flex: 1; min-width: 0; }
+  .todo-text {
+    font-size: 14px; color: var(--t1); font-weight: 500;
+    word-break: break-word; transition: all 0.2s;
+  }
+  .todo-item.done .todo-text { text-decoration: line-through; color: var(--t4); }
+  .todo-meta {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 6px; flex-wrap: wrap;
+  }
+  .todo-tag {
+    font-size: 10px; padding: 3px 8px; border-radius: 6px;
+    font-weight: 600; cursor: pointer; transition: all 0.15s;
+  }
+  .todo-date { font-size: 10px; color: var(--t4); }
+
+  .todo-actions { display: flex; gap: 4px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
+  .todo-item:hover .todo-actions { opacity: 1; }
+  .todo-action {
+    width: 28px; height: 28px; border-radius: 8px; border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 13px; font-family: inherit;
+    transition: all 0.15s;
+  }
+  .todo-action.del { background: var(--redD); color: var(--red); }
+  .todo-action.del:hover { background: var(--red); color: #fff; }
+
+  /* ═══ TAGS ═══ */
+  .tag-personal { background: var(--accD); color: var(--acc); }
+  .tag-work { background: rgba(157,122,232,0.12); color: var(--prp); }
+  .tag-finance { background: rgba(212,168,67,0.12); color: var(--amb); }
+  .tag-health { background: var(--grnD); color: var(--grn); }
+  .tag-urgent { background: var(--redD); color: var(--red); }
+  .tag-all { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 24px; }
+  .tag-filter {
+    padding: 6px 14px; border-radius: 10px; border: 1px solid var(--bd);
+    background: transparent; color: var(--t3); font-size: 11px;
+    font-weight: 600; font-family: inherit; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tag-filter.active { background: var(--accD); color: var(--acc); border-color: rgba(58,130,247,0.3); }
+
+  /* ═══ FOOTER ═══ */
+  .footer {
+    border-top: 1px solid var(--bd); padding: 20px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: var(--t4); flex-wrap: wrap; gap: 8px;
+  }
+  .reset-btn {
+    background: transparent; border: 1px solid var(--bd);
+    border-radius: 8px; padding: 4px 10px; color: var(--t4);
+    font-size: 10px; cursor: pointer; font-family: inherit;
+  }
+
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .nav { padding: 4px; gap: 0; }
+    .nav-tab { padding: 6px 10px; font-size: 11px; }
+    .main { padding: 32px 16px 60px; }
+    .page-title { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav-wrap">
+  <nav class="nav">
+    <div class="nav-logo">
+      <div class="nav-icon">✓</div>
+      <span class="nav-title">todo<span>+</span></span>
+    </div>
+    <button class="nav-tab active" data-tab="tasks" onclick="switchTab('tasks')">Tasks</button>
+    <button class="nav-tab" data-tab="completed" onclick="switchTab('completed')">Completed</button>
+    <div class="nav-stat" id="navCounter">0</div>
+    <div class="save-pill" id="savePill" style="display:none"></div>
+  </nav>
+</div>
+
+<main class="main">
+  <h1 class="page-title">Todo List</h1>
+  <p class="page-sub">Stay on track — your tasks persist across sessions</p>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Total</div>
+      <div class="stat-val" id="statTotal" style="color:var(--t1)">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active</div>
+      <div class="stat-val" id="statActive" style="color:var(--acc)">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Done</div>
+      <div class="stat-val" id="statDone" style="color:var(--grn)">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Progress</div>
+      <div class="stat-val" id="statPct" style="color:var(--amb)">0%</div>
+    </div>
+  </div>
+
+  <!-- Add -->
+  <div class="add-row">
+    <input class="add-input" id="addInput" placeholder="What needs to be done?" onkeydown="if(event.key==='Enter')addTodo()">
+    <button class="add-btn" onclick="addTodo()">Add</button>
+  </div>
+
+  <!-- Tag filter -->
+  <div class="tag-all" id="tagFilters">
+    <button class="tag-filter active" onclick="filterTag('all')">All</button>
+    <button class="tag-filter" onclick="filterTag('personal')">Personal</button>
+    <button class="tag-filter" onclick="filterTag('work')">Work</button>
+    <button class="tag-filter" onclick="filterTag('finance')">Finance</button>
+    <button class="tag-filter" onclick="filterTag('health')">Health</button>
+    <button class="tag-filter" onclick="filterTag('urgent')">Urgent</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters" id="statusFilters">
+    <button class="filter-btn active" onclick="filterStatus('all')">All</button>
+    <button class="filter-btn" onclick="filterStatus('active')">Active</button>
+    <button class="filter-btn" onclick="filterStatus('done')">Done</button>
+  </div>
+
+  <!-- List -->
+  <div class="todo-list" id="todoList"></div>
+</main>
+
+<footer class="footer">
+  <span>todo+ · Synced with plan+</span>
+  <div style="display:flex;align-items:center;gap:16px">
+    <button class="reset-btn" onclick="clearAll()">Clear All</button>
+    <button class="reset-btn" onclick="clearDone()">Clear Done</button>
+  </div>
+</footer>
+
+<script>
+const TAGS = ["personal","work","finance","health","urgent"];
+const TAG_COLORS = { personal:"tag-personal", work:"tag-work", finance:"tag-finance", health:"tag-health", urgent:"tag-urgent" };
+
+let todos = [];
+let currentTab = "tasks";
+let currentStatus = "all";
+let currentTag = "all";
+let saveTimeout = null;
+
+// ═══ PERSISTENCE ═══
+async function loadTodos() {
+  try {
+    if (window.storage) {
+      const result = await window.storage.get("todo-plus-data");
+      if (result && result.value) {
+        todos = JSON.parse(result.value);
+      }
+    }
+  } catch (e) { console.log("Load skipped:", e.message); }
+  render();
+}
+
+async function saveTodos() {
+  const pill = document.getElementById("savePill");
+  pill.style.display = "block";
+  pill.className = "save-pill saving";
+  pill.textContent = "Saving…";
+
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      if (window.storage) {
+        await window.storage.set("todo-plus-data", JSON.stringify(todos));
+      }
+      pill.className = "save-pill saved";
+      pill.textContent = "✓ Saved";
+      setTimeout(() => { pill.style.display = "none"; }, 2000);
+    } catch (e) {
+      console.log("Save skipped:", e.message);
+      pill.style.display = "none";
+    }
+  }, 800);
+}
+
+// ═══ ACTIONS ═══
+function addTodo() {
+  const input = document.getElementById("addInput");
+  const text = input.value.trim();
+  if (!text) return;
+  todos.unshift({
+    id: Date.now().toString(),
+    text,
+    done: false,
+    tag: null,
+    createdAt: new Date().toISOString()
+  });
+  input.value = "";
+  saveTodos();
+  render();
+}
+
+function toggleTodo(id) {
+  const todo = todos.find(t => t.id === id);
+  if (todo) todo.done = !todo.done;
+  saveTodos();
+  render();
+}
+
+function deleteTodo(id) {
+  todos = todos.filter(t => t.id !== id);
+  saveTodos();
+  render();
+}
+
+function setTag(id, tag) {
+  const todo = todos.find(t => t.id === id);
+  if (todo) todo.tag = todo.tag === tag ? null : tag;
+  saveTodos();
+  render();
+}
+
+function clearDone() {
+  if (!confirm("Remove all completed tasks?")) return;
+  todos = todos.filter(t => !t.done);
+  saveTodos();
+  render();
+}
+
+function clearAll() {
+  if (!confirm("Delete ALL tasks? This cannot be undone.")) return;
+  todos = [];
+  saveTodos();
+  render();
+}
+
+// ═══ NAVIGATION ═══
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".nav-tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  if (tab === "completed") { currentStatus = "done"; } else { currentStatus = "all"; }
+  // Update status filter buttons
+  document.querySelectorAll("#statusFilters .filter-btn").forEach(b => {
+    b.classList.toggle("active", false);
+  });
+  render();
+}
+
+function filterStatus(status) {
+  currentStatus = status;
+  document.querySelectorAll("#statusFilters .filter-btn").forEach(b => {
+    b.classList.toggle("active", b.textContent.toLowerCase() === status);
+  });
+  render();
+}
+
+function filterTag(tag) {
+  currentTag = tag;
+  document.querySelectorAll(".tag-filter").forEach(b => {
+    b.classList.toggle("active", b.textContent.toLowerCase() === tag);
+  });
+  render();
+}
+
+// ═══ RENDER ═══
+function render() {
+  const total = todos.length;
+  const done = todos.filter(t => t.done).length;
+  const active = total - done;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  document.getElementById("statTotal").textContent = total;
+  document.getElementById("statActive").textContent = active;
+  document.getElementById("statDone").textContent = done;
+  document.getElementById("statPct").textContent = pct + "%";
+  document.getElementById("navCounter").textContent = active;
+
+  let filtered = [...todos];
+  if (currentTab === "completed") {
+    filtered = filtered.filter(t => t.done);
+  } else {
+    if (currentStatus === "active") filtered = filtered.filter(t => !t.done);
+    if (currentStatus === "done") filtered = filtered.filter(t => t.done);
+  }
+  if (currentTag !== "all") filtered = filtered.filter(t => t.tag === currentTag);
+
+  const list = document.getElementById("todoList");
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="todo-empty">
+      <div style="font-size:24px;margin-bottom:8px">${currentTab === "completed" ? "🎉" : "✨"}</div>
+      ${currentTab === "completed" ? "No completed tasks yet" : currentStatus === "done" ? "Nothing completed yet — keep going" : "All clear — add a task above"}
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(todo => {
+    const d = new Date(todo.createdAt);
+    const dateStr = d.toLocaleDateString("en-IN", { day:"numeric", month:"short" });
+    const tagBtns = TAGS.map(tag =>
+      `<span class="todo-tag ${TAG_COLORS[tag]} ${todo.tag === tag ? '' : 'style="opacity:0.4"'}" onclick="event.stopPropagation();setTag('${todo.id}','${tag}')">${tag}</span>`
+    ).join("");
+
+    return `<div class="todo-item ${todo.done ? 'done' : ''}">
+      <div class="todo-check ${todo.done ? 'checked' : ''}" onclick="toggleTodo('${todo.id}')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="todo-body">
+        <div class="todo-text">${escapeHtml(todo.text)}</div>
+        <div class="todo-meta">
+          ${tagBtns}
+          <span class="todo-date">${dateStr}</span>
+        </div>
+      </div>
+      <div class="todo-actions">
+        <button class="todo-action del" onclick="deleteTodo('${todo.id}')">×</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ═══ INIT ═══
+loadTodos();
+</script>
+
+</body>
+</html>
