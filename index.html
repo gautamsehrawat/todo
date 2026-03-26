@@ -269,13 +269,14 @@
     <button class="nav-tab active" data-tab="tasks" onclick="switchTab('tasks')">Tasks</button>
     <button class="nav-tab" data-tab="completed" onclick="switchTab('completed')">Completed</button>
     <div class="nav-stat" id="navCounter">0</div>
+    <div id="syncBadge" style="display:none;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:600;margin-left:2px"></div>
     <div class="save-pill" id="savePill" style="display:none"></div>
   </nav>
 </div>
 
 <main class="main">
   <h1 class="page-title">Todo List</h1>
-  <p class="page-sub">Stay on track — your tasks persist across sessions</p>
+  <p class="page-sub">Stay on track — saves to localStorage + Firebase for cross-device sync</p>
 
   <!-- Stats -->
   <div class="stats">
@@ -332,7 +333,104 @@
   </div>
 </footer>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 <script>
+/* ══════════════════════════════════════════════════════════════
+   STEP 1: Paste your Firebase config below.
+   Get it from: console.firebase.google.com → Project Settings
+                → General → Your apps → Web app → Config
+   ══════════════════════════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCkr2xQxGueFoP7LT61EMQkaR-uQlKfMPQ",   // ← paste your apiKey
+  authDomain:        "todo-73840.firebaseapp.com",   // ← paste your authDomain
+  projectId:         "todo-73840",   // ← paste your projectId
+  storageBucket:     "todo-73840.firebasestorage.app",   // ← paste your storageBucket
+  messagingSenderId: "967892971292",   // ← paste your messagingSenderId
+  appId:             "1:967892971292:web:5cd1cf4e569383982f14d9",   // ← paste your appId
+};
+
+/* STEP 2: That's it. Deploy to Vercel/Netlify and it works.
+   ──────────────────────────────────────────────────────────
+   If config is empty, the app uses localStorage only (same device).
+   If config is filled, it syncs to Firestore (all devices).        */
+
+// ═══ STORAGE LAYER ═══
+const LOCAL_KEY = "todo-plus-data";
+const FIRE_DOC = "my-todos";
+let db = null;
+let firebaseReady = false;
+
+// Init Firebase if config is provided
+if (FIREBASE_CONFIG.apiKey) {
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    firebaseReady = true;
+    console.log("Firebase connected — cross-device sync active");
+  } catch (e) {
+    console.warn("Firebase init failed, using localStorage only:", e.message);
+  }
+}
+
+async function loadFromStorage() {
+  // 1. Always load localStorage first (instant, no network)
+  try {
+    const local = localStorage.getItem(LOCAL_KEY);
+    if (local) return JSON.parse(local);
+  } catch (e) {}
+
+  // 2. Fallback: Claude artifact storage
+  try {
+    if (window.storage) {
+      const r = await window.storage.get(LOCAL_KEY);
+      if (r && r.value) return JSON.parse(r.value);
+    }
+  } catch (e) {}
+
+  return [];
+}
+
+async function loadFromFirebase() {
+  if (!firebaseReady) return null;
+  try {
+    const snap = await db.collection("todos").doc(FIRE_DOC).get();
+    if (snap.exists) {
+      const d = snap.data();
+      return d.todos || [];
+    }
+  } catch (e) { console.warn("Firebase load failed:", e.message); }
+  return null;
+}
+
+async function saveToStorage(data) {
+  // Always save to localStorage (instant)
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch (e) {}
+
+  // Also save to Claude artifact storage if available
+  try { if (window.storage) await window.storage.set(LOCAL_KEY, JSON.stringify(data)); } catch (e) {}
+}
+
+async function saveToFirebase(data) {
+  if (!firebaseReady) return;
+  try {
+    await db.collection("todos").doc(FIRE_DOC).set({
+      todos: data,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (e) { console.warn("Firebase save failed:", e.message); }
+}
+
+async function deleteFromStorage() {
+  try { localStorage.removeItem(LOCAL_KEY); } catch (e) {}
+  try { if (window.storage) await window.storage.delete(LOCAL_KEY); } catch (e) {}
+  if (firebaseReady) {
+    try { await db.collection("todos").doc(FIRE_DOC).delete(); } catch (e) {}
+  }
+}
+
+// ═══ APP STATE ═══
 const TAGS = ["personal","work","finance","health","urgent"];
 const TAG_COLORS = { personal:"tag-personal", work:"tag-work", finance:"tag-finance", health:"tag-health", urgent:"tag-urgent" };
 
@@ -344,15 +442,35 @@ let saveTimeout = null;
 
 // ═══ PERSISTENCE ═══
 async function loadTodos() {
-  try {
-    if (window.storage) {
-      const result = await window.storage.get("todo-plus-data");
-      if (result && result.value) {
-        todos = JSON.parse(result.value);
+  // Load local first (instant)
+  todos = await loadFromStorage();
+  render();
+  showSyncStatus("local");
+
+  // Then try Firebase (may override with fresher data)
+  if (firebaseReady) {
+    const remote = await loadFromFirebase();
+    if (remote && remote.length > 0) {
+      // Use whichever has more recent data
+      const localLatest = todos.length > 0 ? Math.max(...todos.map(t => new Date(t.createdAt || 0).getTime())) : 0;
+      const remoteLatest = remote.length > 0 ? Math.max(...remote.map(t => new Date(t.createdAt || 0).getTime())) : 0;
+      if (remoteLatest >= localLatest || todos.length === 0) {
+        todos = remote;
+        await saveToStorage(todos); // sync local with remote
+        render();
       }
     }
-  } catch (e) { console.log("Load skipped:", e.message); }
-  render();
+    showSyncStatus("synced");
+  }
+}
+
+function showSyncStatus(status) {
+  const el = document.getElementById("syncBadge");
+  if (!el) return;
+  if (status === "synced") { el.textContent = "☁️ Synced"; el.style.color = "var(--grn)"; el.style.background = "var(--grnD)"; }
+  else if (status === "local") { el.textContent = "💾 Local"; el.style.color = "var(--amb)"; el.style.background = "rgba(212,168,67,0.12)"; }
+  else { el.textContent = ""; }
+  el.style.display = status ? "block" : "none";
 }
 
 async function saveTodos() {
@@ -361,19 +479,16 @@ async function saveTodos() {
   pill.className = "save-pill saving";
   pill.textContent = "Saving…";
 
+  // Save to local immediately
+  await saveToStorage(todos);
+
+  // Debounce Firebase save
   if (saveTimeout) clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
-    try {
-      if (window.storage) {
-        await window.storage.set("todo-plus-data", JSON.stringify(todos));
-      }
-      pill.className = "save-pill saved";
-      pill.textContent = "✓ Saved";
-      setTimeout(() => { pill.style.display = "none"; }, 2000);
-    } catch (e) {
-      console.log("Save skipped:", e.message);
-      pill.style.display = "none";
-    }
+    await saveToFirebase(todos);
+    pill.className = "save-pill saved";
+    pill.textContent = firebaseReady ? "☁️ Synced" : "✓ Saved";
+    setTimeout(() => { pill.style.display = "none"; }, 2000);
   }, 800);
 }
 
@@ -421,10 +536,10 @@ function clearDone() {
   render();
 }
 
-function clearAll() {
+async function clearAll() {
   if (!confirm("Delete ALL tasks? This cannot be undone.")) return;
   todos = [];
-  saveTodos();
+  await deleteFromStorage();
   render();
 }
 
@@ -433,7 +548,6 @@ function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll(".nav-tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   if (tab === "completed") { currentStatus = "done"; } else { currentStatus = "all"; }
-  // Update status filter buttons
   document.querySelectorAll("#statusFilters .filter-btn").forEach(b => {
     b.classList.toggle("active", false);
   });
